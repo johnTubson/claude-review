@@ -1,0 +1,54 @@
+{
+  "name": "session-review",
+  "version": "1.0.0",
+  "description": "Records every file Claude changes (Edit, Write, NotebookEdit and Bash) in the workspace ledger the Claude Review VS Code extension reads; /changes keeps or undoes them",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "John Tubson"
+  },
+  "license": "MIT",
+  "userConfig": {
+    "bash": {
+      "type": "boolean",
+      "title": "Record Bash changes",
+      "description": "Snapshot the git work tree around mutating Bash commands to record the files they change.",
+      "default": true
+    },
+    "band": {
+      "type": "boolean",
+      "title": "Show the review band",
+      "description": "Show a one-row band above the prompt while changes wait for review.",
+      "default": true
+    },
+    "maxBashFiles": {
+      "type": "number",
+      "title": "Max files per Bash command",
+      "description": "Files recorded per Bash command; the rest are dropped and logged.",
+      "default": 200
+    },
+    "maxFileBytes": {
+      "type": "number",
+      "title": "Max file size for Bash (bytes)",
+      "description": "Files Bash changes that are larger are never read, hashed or recorded.",
+      "default": 2097152
+    },
+    "maxSnapshotCandidates": {
+      "type": "number",
+      "title": "Max changed paths per snapshot",
+      "description": "Past this many changed paths a Bash command runs unrecorded and a background rebaseline follows.",
+      "default": 2000
+    },
+    "dataDir": {
+      "type": "string",
+      "title": "Data directory",
+      "description": "Where the ledgers are kept, shared with the VS Code extension. Empty means ~/.claude/claude-review/v2.",
+      "default": ""
+    },
+    "debugTimings": {
+      "type": "boolean",
+      "title": "Log timings",
+      "description": "Log how many engine calls and milliseconds each recorded change took.",
+      "default": false
+    }
+  }
+}

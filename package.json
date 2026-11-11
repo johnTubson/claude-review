@@ -1,0 +1,23 @@
+{
+  "name": "claude-review-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/core",
+    "packages/vscode"
+  ],
+  "scripts": {
+    "sync-core": "node scripts/sync-core.mjs",
+    "build": "npm run sync-core && npm run build -w packages/vscode",
+    "typecheck": "npm run typecheck -w packages/core && tsc -p packages/mod --noEmit && npm run typecheck -w packages/vscode",
+    "test": "npm test -w packages/core && node scripts/mod-check.mjs test && npm test -w packages/vscode",
+    "bench": "npm run bench -w packages/core",
+    "verify": "node scripts/sync-core.mjs --check && node scripts/check-marketplace.mjs && npm run typecheck && node scripts/mod-check.mjs validate && npm test",
+    "package": "npm run build && npm run package -w packages/vscode",
+    "install-local": "npm run build && npm run install-local -w packages/vscode"
+  },
+  "devDependencies": {
+    "@types/node": "20.16.10",
+    "esbuild": "0.24.0",
+    "typescript": "5.6.3"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@claude-review/core",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "node build-tests.mjs test && node --test --test-reporter=dot \"dist-test/test/*.test.js\"",
+    "bench": "node build-tests.mjs bench && node scripts/run-benches.mjs",
+    "fold-legacy02": "esbuild scripts/fold-legacy02.ts --bundle --platform=node --log-level=warning --outfile=dist-test/fold-legacy02.js && node dist-test/fold-legacy02.js"
+  }
+}

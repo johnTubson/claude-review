@@ -1,0 +1,11 @@
+{
+  "name": "claude-review",
+  "owner": { "name": "John Tubson" },
+  "plugins": [
+    {
+      "name": "session-review",
+      "source": "./packages/mod",
+      "description": "Records every file Claude changes (Edit, Write, NotebookEdit and Bash) for the Claude Review VS Code extension, and adds /changes to keep or undo them"
+    }
+  ]
+}

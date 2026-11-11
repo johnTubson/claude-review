@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-test/
+*.vsix
+.vscode-test/
+.DS_Store
+packages/mod/.claude-plugin/types/claude-code-tools/
+packages/mod/.claude-plugin/types/claude-code-mcp/
+packages/mod/.claude-plugin/types/tsconfig.json

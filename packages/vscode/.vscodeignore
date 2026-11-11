@@ -1,0 +1,6 @@
+**
+!dist/extension.js
+!dist/diffWorker.js
+!media/**
+!package.json
+!README.md
