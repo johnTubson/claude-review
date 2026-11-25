@@ -14,6 +14,7 @@ import { BLOB_WARN_BYTES, compact } from './ledger/compactor'
 import { Discovery } from './ledger/discovery'
 import { migrate02 } from './ledger/migrate'
 import { LedgerStore } from './ledger/store'
+import { worktreesOf } from './ledger/worktrees'
 import { createLog, reasonOf } from './log'
 import { newPerf, timed, type Perf } from './perf'
 import { ActionQueue } from './review/actions'
@@ -30,6 +31,7 @@ import { editedPaths, follow } from './ui/follow'
 import { hoverProvider } from './ui/hover'
 import { promptOnce } from './ui/prompts'
 import { ReviewStatus } from './ui/statusBar'
+import { rootOfFile as rootOfFileIn } from './ui/grouping'
 import { ChangesTree } from './ui/tree'
 
 const BLOB_CACHE_BYTES = 64 * 1024 * 1024
@@ -83,8 +85,12 @@ export function activate(context: vscode.ExtensionContext): ClaudeReviewApi {
   })
   subs.push({ dispose: () => pool.dispose() }, { dispose: () => sched.dispose() }, model)
 
-  const roots = (): string[] => folderPaths()
-  const tree = new ChangesTree(model, blobs, perf, roots, config.current.groupBy)
+  const branches = new Map<string, string>()
+  const rootOfFile = (file: string): string | undefined => {
+    const state = model.get(file)
+    return rootOfFileIn(file, folderPaths(), state && model.rootOf(state.ledgerDir))
+  }
+  const tree = new ChangesTree(model, blobs, perf, rootOfFile, root => branches.get(root), config.current.groupBy)
   const view = vscode.window.createTreeView('claudeReview.changes', { treeDataProvider: tree, showCollapseAll: true })
   const contextKeys = new ContextKeys(model)
   contextKeys.setGroupBy(config.current.groupBy)
@@ -224,7 +230,18 @@ export function activate(context: vscode.ExtensionContext): ClaudeReviewApi {
     maybeCompact(store)
   }
 
-  const discovery = new Discovery({ dataDir: config.current.dataDir, folders: folderPaths, isOpen: d => stores.has(d), open: openStore, log })
+  const discovery = new Discovery({
+    dataDir: config.current.dataDir,
+    folders: folderPaths,
+    isOpen: d => stores.has(d),
+    open: openStore,
+    worktreesOf,
+    onWorktrees: found => {
+      branches.clear()
+      for (const w of found) if (w.branch !== undefined) branches.set(w.root, w.branch)
+    },
+    log,
+  })
   subs.push(discovery)
   const bridge = new Bridge(
     {

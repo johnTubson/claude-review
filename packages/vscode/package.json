@@ -43,6 +43,7 @@
           "enum": [
             "files",
             "folders",
+            "worktree",
             "turns",
             "sessions"
           ],
@@ -159,6 +160,12 @@
         "title": "Group by Folders",
         "category": "Claude Review",
         "icon": "$(folder)"
+      },
+      {
+        "command": "claudeReview.groupByWorktree",
+        "title": "Group by Worktree",
+        "category": "Claude Review",
+        "icon": "$(git-branch)"
       },
       {
         "command": "claudeReview.groupByTurns",
@@ -363,12 +370,16 @@
           "group": "1@2"
         },
         {
-          "command": "claudeReview.groupByTurns",
+          "command": "claudeReview.groupByWorktree",
           "group": "1@3"
         },
         {
-          "command": "claudeReview.groupBySessions",
+          "command": "claudeReview.groupByTurns",
           "group": "1@4"
+        },
+        {
+          "command": "claudeReview.groupBySessions",
+          "group": "1@5"
         }
       ],
       "view/item/context": [

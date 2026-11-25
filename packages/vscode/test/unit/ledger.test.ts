@@ -15,6 +15,7 @@ import { readSlots } from '../../src/ledger/disk'
 import { Discovery } from '../../src/ledger/discovery'
 import { blobPath, eventsDir, gcFile, ledgerDirFor, snapshotsDir } from '../../src/ledger/layout'
 import { LedgerStore } from '../../src/ledger/store'
+import type { Worktree } from '../../src/ledger/worktrees'
 import { cleanTemps, perf, ref, S1, sleep, tempDir, testLog, until } from './support'
 
 after(cleanTemps)
@@ -196,11 +197,65 @@ describe('Discovery', () => {
     const above = make('/work')
     make('/elsewhere')
     const opened = new Set<string>()
-    const discovery = new Discovery({ dataDir, folders: () => ['/work/app'], isOpen: d => opened.has(d), open: async d => void opened.add(d), log: testLog() })
+    const discovery = new Discovery({ dataDir, folders: () => ['/work/app'], isOpen: d => opened.has(d), open: async d => void opened.add(d), worktreesOf: async () => [], onWorktrees: () => undefined, log: testLog() })
     await discovery.start()
     assert.deepEqual([...opened].sort(), [above, inside].sort())
     const later = make('/work/app/later')
     await until('the watcher opens a new ledger', () => opened.has(later))
+    discovery.dispose()
+  })
+
+  test('also opens the ledgers of the git worktrees of a folder, and reports their branches', async () => {
+    const dataDir = tempDir()
+    const make = (root: string): string => {
+      const dir = ledgerDirFor(dataDir, root)
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(path.join(dir, 'meta.json'), JSON.stringify({ v: 2, root, createdAt: 1 }))
+      return dir
+    }
+    const main = make('/work/app')
+    const sibling = make('/work/app-push')
+    make('/work/other')
+    const opened = new Set<string>()
+    let reported: readonly Worktree[] = []
+    const discovery = new Discovery({
+      dataDir,
+      folders: () => ['/work/app'],
+      isOpen: d => opened.has(d),
+      open: async d => void opened.add(d),
+      worktreesOf: async () => [
+        { root: '/work/app', branch: 'develop' },
+        { root: '/work/app-push', branch: 'feat/push' },
+      ],
+      onWorktrees: found => void (reported = found),
+      log: testLog(),
+    })
+    await discovery.start()
+    assert.deepEqual([...opened].sort(), [main, sibling].sort())
+    assert.deepEqual(reported.map(w => w.branch), ['develop', 'feat/push'])
+    discovery.dispose()
+  })
+
+  test('a folder whose worktrees cannot be listed still opens its own ledgers, and the failure is logged', async () => {
+    const dataDir = tempDir()
+    const dir = ledgerDirFor(dataDir, '/work/app')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(path.join(dir, 'meta.json'), JSON.stringify({ v: 2, root: '/work/app', createdAt: 1 }))
+    const opened = new Set<string>()
+    const errors: string[] = []
+    const log = { ...testLog(), error: (what: string) => void errors.push(what) }
+    const discovery = new Discovery({
+      dataDir,
+      folders: () => ['/work/app'],
+      isOpen: d => opened.has(d),
+      open: async d => void opened.add(d),
+      worktreesOf: () => Promise.reject(new Error('git is not installed')),
+      onWorktrees: () => undefined,
+      log,
+    })
+    await discovery.start()
+    assert.deepEqual([...opened], [dir])
+    assert.equal(errors.length, 1)
     discovery.dispose()
   })
 })

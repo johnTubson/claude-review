@@ -1,5 +1,6 @@
 // Which ledgers this window shows: those whose meta.json root is one of its
-// folders, above one or below one. Reads meta.json files only, never a tree;
+// folders, above one or below one, or a git worktree of a folder's repository
+// (a linked worktree is usually a sibling directory). Reads meta.json files only, never a tree;
 // the ledgers folder is watched for ledgers the mod creates later.
 
 import { promises as fs, watch, type FSWatcher } from 'node:fs'
@@ -11,6 +12,7 @@ import type { Log } from '../log'
 import { Coalescer } from '../util/async'
 import { listIfPresent, readTextIfPresent } from './fsx'
 import { isSameTree, ledgersDir, metaFile } from './layout'
+import type { Worktree } from './worktrees'
 
 const WATCH_DEBOUNCE_MS = 50
 
@@ -19,6 +21,9 @@ export type DiscoveryDeps = {
   readonly folders: () => readonly string[]
   readonly isOpen: (dir: string) => boolean
   readonly open: (dir: string, root: string) => Promise<void>
+  readonly worktreesOf: (folder: string) => Promise<readonly Worktree[]>
+  /** The worktrees found for this window's folders, before any ledger of theirs is opened. */
+  readonly onWorktrees: (worktrees: readonly Worktree[]) => void
   readonly log: Log
 }
 
@@ -63,6 +68,8 @@ export class Discovery {
   private async connectNow(): Promise<void> {
     const base = ledgersDir(this.deps.dataDir)
     const folders = this.deps.folders()
+    const worktrees = await this.worktreesOfFolders(folders)
+    const scope = [...folders, ...worktrees.map(w => w.root)]
     const dirs = (await listIfPresent(base)).map(name => path.join(base, name))
     await Promise.all(
       dirs.map(async dir => {
@@ -76,8 +83,23 @@ export class Discovery {
           this.roots.set(dir, root)
         }
         const r = root
-        if (folders.some(f => isSameTree(r, f))) await this.deps.open(dir, r)
+        if (scope.some(f => isSameTree(r, f))) await this.deps.open(dir, r)
       }),
     )
+  }
+
+  /** Asked again on every connect: a new worktree shows up only as a new ledger. */
+  private async worktreesOfFolders(folders: readonly string[]): Promise<Worktree[]> {
+    const found = await Promise.all(
+      folders.map(folder =>
+        this.deps.worktreesOf(folder).catch((err: unknown) => {
+          this.deps.log.error(`listing the worktrees of ${folder}`, err)
+          return []
+        }),
+      ),
+    )
+    const worktrees = found.flat()
+    this.deps.onWorktrees(worktrees)
+    return worktrees
   }
 }

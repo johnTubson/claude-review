@@ -1,4 +1,4 @@
-// The Changes view (§7.7): by files, folders, turns or sessions, with inline
+// The Changes view (§7.7): by files, folders, worktrees, turns or sessions, with inline
 // Keep / Undo. A count change refreshes only that file's items; membership
 // refreshes the whole tree; turns refresh it only where turns are shown.
 
@@ -18,6 +18,7 @@ import type { Perf } from '../perf'
 export const nodeSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('file'), path: z.string(), turn: z.string().optional() }),
   z.object({ kind: z.literal('dir'), dir: z.string() }),
+  z.object({ kind: z.literal('worktree'), root: z.string() }),
   z.object({ kind: z.literal('turn'), key: z.string() }),
   z.object({ kind: z.literal('session'), id: z.string() }),
 ])
@@ -30,6 +31,8 @@ const idOf = (node: Node): string => {
       return node.turn === undefined ? `f:${node.path}` : `f:${node.turn}:${node.path}`
     case 'dir':
       return `d:${node.dir}`
+    case 'worktree':
+      return `w:${node.root}`
     case 'turn':
       return `t:${node.key}`
     case 'session':
@@ -58,7 +61,8 @@ export class ChangesTree implements vscode.TreeDataProvider<Node>, vscode.Dispos
     private readonly model: ReviewModel,
     private readonly blobs: Blobs,
     private readonly perf: Perf,
-    private readonly roots: () => readonly string[],
+    private readonly rootOfFile: (file: string) => string | undefined,
+    private readonly branchOf: (root: string) => string | undefined,
     private mode: GroupBy,
   ) {
     this.subscriptions = [
@@ -111,6 +115,17 @@ export class ChangesTree implements vscode.TreeDataProvider<Node>, vscode.Dispos
         item.contextValue = 'crDir'
         return item
       }
+      case 'worktree': {
+        const branch = this.branchOf(node.root)
+        const counts = this.sum(this.filesOfRoot(node.root))
+        const item = new vscode.TreeItem(branch ?? path.basename(node.root), vscode.TreeItemCollapsibleState.Expanded)
+        item.id = idOf(node)
+        item.iconPath = new vscode.ThemeIcon('git-branch')
+        item.description = `${branch === undefined ? '' : `${path.basename(node.root)}  `}+${counts.added} −${counts.removed}`
+        item.tooltip = node.root
+        item.contextValue = 'crWorktree'
+        return item
+      }
       case 'turn': {
         const turn = this.model.turnOf(node.key)
         const item = new vscode.TreeItem(`#${turn?.n ?? '?'}  ${turn?.prompt || '(continuation)'}`, vscode.TreeItemCollapsibleState.Expanded)
@@ -155,7 +170,7 @@ export class ChangesTree implements vscode.TreeDataProvider<Node>, vscode.Dispos
   }
 
   private refreshFiles(paths: ReadonlySet<string>): void {
-    const nodes = [...this.items.values()].filter(n => (n.kind === 'file' && paths.has(n.path)) || n.kind === 'dir')
+    const nodes = [...this.items.values()].filter(n => (n.kind === 'file' && paths.has(n.path)) || n.kind === 'dir' || n.kind === 'worktree')
     if (nodes.length === 0) return
     this.perf.treeItemRefreshes++
     this.emitter.fire(nodes)
@@ -178,6 +193,10 @@ export class ChangesTree implements vscode.TreeDataProvider<Node>, vscode.Dispos
           if (single) return [...single.dirs.map((c): Node => ({ kind: 'dir', dir: c.dir })), ...single.files.map((p): Node => ({ kind: 'file', path: p }))]
           return this.topLevel().map((d): Node => ({ kind: 'dir', dir: d.dir }))
         }
+        case 'worktree': {
+          const roots = this.worktreeRoots()
+          return roots.length === 1 ? files() : roots.map((root): Node => ({ kind: 'worktree', root }))
+        }
         case 'turns':
           return this.model.turns().map(t => ({ kind: 'turn', key: t.key }))
         case 'sessions':
@@ -193,6 +212,8 @@ export class ChangesTree implements vscode.TreeDataProvider<Node>, vscode.Dispos
         const d = this.folderIndex().get(node.dir)
         return d ? [...d.dirs.map((c): Node => ({ kind: 'dir', dir: c.dir })), ...d.files.map((p): Node => ({ kind: 'file', path: p }))] : []
       }
+      case 'worktree':
+        return this.filesOfRoot(node.root).map((p): Node => ({ kind: 'file', path: p }))
       case 'turn':
         return (this.model.turnOf(node.key)?.paths ?? []).filter(p => this.isListed(p)).map(p => ({ kind: 'file', path: p, turn: node.key }))
       case 'session':
@@ -207,8 +228,16 @@ export class ChangesTree implements vscode.TreeDataProvider<Node>, vscode.Dispos
   }
 
   private relative(file: string): string {
-    const root = this.roots().find(r => file.startsWith(r + path.sep))
+    const root = this.rootOfFile(file)
     return root ? path.relative(root, file) : file
+  }
+
+  private worktreeRoots(): string[] {
+    return [...new Set(this.model.files().map(f => this.rootOfFile(f.path) ?? path.dirname(f.path)))]
+  }
+
+  private filesOfRoot(root: string): string[] {
+    return this.model.files().filter(f => (this.rootOfFile(f.path) ?? path.dirname(f.path)) === root).map(f => f.path)
   }
 
   private fileItem(file: string, turn: string | undefined): vscode.TreeItem {
@@ -217,7 +246,7 @@ export class ChangesTree implements vscode.TreeDataProvider<Node>, vscode.Dispos
     item.id = idOf(turn === undefined ? { kind: 'file', path: file } : { kind: 'file', path: file, turn })
     const s = this.model.get(file)
     const dir = path.dirname(this.relative(file))
-    const where = this.mode === 'files' && dir !== '.' ? `${dir}  ` : ''
+    const where = (this.mode === 'files' || this.mode === 'worktree') && dir !== '.' ? `${dir}  ` : ''
     item.description = `${where}${this.countsText(s, turn)}${this.statusOf(s)}`
     item.contextValue = turn === undefined ? 'crFile' : 'crFileInTurn'
     item.command = { command: 'claudeReview.openFile', title: 'Open', arguments: [uri] }
@@ -297,7 +326,7 @@ export class ChangesTree implements vscode.TreeDataProvider<Node>, vscode.Dispos
     type Trie = { readonly dir: string; readonly name: string; readonly children: Map<string, Trie>; readonly files: string[] }
     const tops = new Map<string, Trie>()
     for (const f of this.model.files()) {
-      const root = this.roots().find(r => f.path.startsWith(r + path.sep)) ?? path.dirname(f.path)
+      const root = this.rootOfFile(f.path) ?? path.dirname(f.path)
       let node: Trie = tops.get(root) ?? { dir: root, name: path.basename(root), children: new Map(), files: [] }
       tops.set(root, node)
       for (const segment of path.relative(root, path.dirname(f.path)).split(path.sep).filter(x => x !== '')) {

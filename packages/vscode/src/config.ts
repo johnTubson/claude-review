@@ -8,7 +8,7 @@ import { z } from 'zod'
 
 const settingsSchema = z.object({
   openFilesAs: z.enum(['inlineDiff', 'file']).catch('inlineDiff'),
-  groupBy: z.enum(['files', 'folders', 'turns', 'sessions']).catch('files'),
+  groupBy: z.enum(['files', 'folders', 'worktree', 'turns', 'sessions']).catch('files'),
   quickDiff: z.boolean().catch(true),
   codeLens: z.boolean().catch(false),
   addedLines: z.boolean().catch(true),

@@ -17,14 +17,14 @@ npm run install-local        # builds and installs packages/vscode/claude-review
 Then point Claude Code at this repo's marketplace in `~/.claude/settings.json`:
 
 ```json
-{ "extraKnownMarketplaces": { "claude-review": { "source": { "source": "directory", "path": "/Users/mac/Desktop/claude-review" } } } }
+{ "extraKnownMarketplaces": { "claude-review": { "source": { "source": "directory", "path": "/absolute/path/to/claude-review" } } } }
 ```
 
-and enable `session-review@claude-review`. Restart running Claude sessions and reload VS Code windows; on the first load the extension migrates pending changes from 0.2 once.
+using the absolute path of your clone, and enable `session-review@claude-review`. Restart running Claude sessions and reload VS Code windows. If you used 0.2, the extension migrates its pending changes once on the first load.
 
 ## Use
 
-In VS Code, the **Claude Review** view lists what is under review, grouped by files, folders, turns or sessions. Click a file to open its inline diff: removed lines in red, Keep / Undo in the diff gutter.
+In VS Code, the **Claude Review** view lists what is under review, grouped by files, folders, worktrees, turns or sessions. Click a file to open its inline diff: removed lines in red, Keep / Undo in the diff gutter.
 
 | keys | does |
 | --- | --- |
@@ -51,7 +51,7 @@ In the terminal, `/changes` lists the review (sessions → turns → files) and 
 | VS Code setting | default | |
 | --- | --- | --- |
 | `claudeReview.openFilesAs` | `inlineDiff` | or `file`: open the file itself |
-| `claudeReview.groupBy` | `files` | `folders`, `turns`, `sessions` |
+| `claudeReview.groupBy` | `files` | `folders`, `worktree`, `turns`, `sessions` |
 | `claudeReview.quickDiff` | `true` | gutter bars against the review baseline |
 | `claudeReview.codeLens` | `false` | Keep / Undo above each change |
 | `claudeReview.decorations.addedLines` / `removedMarkers` | `true` | |

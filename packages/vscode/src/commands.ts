@@ -187,6 +187,7 @@ export const registerCommands = (deps: CommandDeps): void => {
   register('claudeReview.refresh', deps.refresh)
   register('claudeReview.groupByFiles', () => setGroupBy('files'))
   register('claudeReview.groupByFolders', () => setGroupBy('folders'))
+  register('claudeReview.groupByWorktree', () => setGroupBy('worktree'))
   register('claudeReview.groupByTurns', () => setGroupBy('turns'))
   register('claudeReview.groupBySessions', () => setGroupBy('sessions'))
 
