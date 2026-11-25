@@ -920,7 +920,7 @@ After an action on the active file, reveal its next change, or else the next fil
    3. Delete what the user chooses with `fs.rm(path, { recursive: true })` in the background.
 4. **Rollout** (do these with the user's confirmation):
    1. `npm run install-local`, which builds and installs `packages/vscode/claude-review.vsix` with `code --install-extension … --force`. The id is the same, so it replaces 0.2.
-   2. Set `extraKnownMarketplaces.claude-review.source.path` in `~/.claude/settings.json` to `/Users/mac/Desktop/claude-review`. The key `session-review@claude-review` stays.
+   2. Set `extraKnownMarketplaces.claude-review.source.path` in `~/.claude/settings.json` to the absolute path of this repository. The key `session-review@claude-review` stays.
    3. Restart any running Claude sessions; until then their 0.2 mods keep writing 0.2 ledgers.
    4. Reload the VS Code windows; migration runs then.
 
